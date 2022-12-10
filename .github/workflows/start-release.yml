@@ -1,11 +1,11 @@
 name: Open a release PR
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: Version to release
-        required: true
-        type: string
+  pull_request:
+    # inputs:
+    #   version:
+    #     description: Version to release
+    #     required: true
+    #     type: string
 
 jobs:
   make-release-pr:
@@ -28,3 +28,4 @@ jobs:
           crate-release-all: true
           check-semver: true
           pr-label: "release"
+          pr-branch: "test"
