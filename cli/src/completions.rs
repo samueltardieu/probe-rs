@@ -50,8 +50,8 @@ pub fn generate_completion(
     kind: CompleteKind,
     input: String,
 ) -> Result<(), anyhow::Error> {
-    if shell != Shell::Zsh {
-        anyhow::bail!("Only ZSH is supported for autocompletions at the moment");
+    if !matches!(shell, Shell::Zsh | Shell::Bash) {
+        anyhow::bail!("Only ZSH and Bash are supported for autocompletions at the moment");
     }
 
     let output = match kind {
@@ -59,6 +59,7 @@ pub fn generate_completion(
             let mut command = <Cli as CommandFactory>::command();
             let name = std::env::args_os().next().unwrap();
             let name = name.to_str().unwrap().split('/').last().unwrap();
+            command = command.name("probe-rs-cli");
             let mut script = Cursor::new(Vec::<u8>::new());
             generate(shell, &mut command, name, &mut script);
             let mut script = String::from_utf8_lossy(&script.into_inner()).to_string();
@@ -105,14 +106,28 @@ _probe-rs-cli_probe_list() {
             "#;
             *script = re.replace_all(script, format!("{inject}\n$1")).into();
 
-            let re = regex::Regex::new(&format!(r#"(PROBE_SELECTOR: )"#))?;
+            let re = regex::Regex::new("(PROBE_SELECTOR: )")?;
             *script = re
                 .replace_all(script, "PROBE_SELECTOR:_probe-rs-cli_probe_list")
                 .into();
 
-            let re = regex::Regex::new(&format!(r#"(CHIP: )"#))?;
+            let re = regex::Regex::new("(CHIP: )")?;
             *script = re
                 .replace_all(script, "CHIP:_probe-rs-cli_chips_list")
+                .into();
+        }
+        Shell::Bash => {
+            let re = regex::Regex::new(
+                r#"(?s)(\-\-chip\)\n *COMPREPLY=\(\$\()compgen \-f( "\$\{cur\}"\)\))"#,
+            )?;
+            *script = re
+                .replace_all(script, r#"${1}probe-rs-cli complete chip-list $2"#)
+                .into();
+            let re = regex::Regex::new(
+                r#"(?s)(\-\-probe\)\n *COMPREPLY=\(\$\()compgen \-f( "\$\{cur\}"\)\))"#,
+            )?;
+            *script = re
+                .replace_all(script, r#"${1}probe-rs-cli complete probe-list $2"#)
                 .into();
         }
         _ => {}
